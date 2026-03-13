@@ -8,6 +8,9 @@ import Pharmacy from './pages/Pharmacy';
 import Laboratory from './pages/Laboratory';
 import PatientRecords from './pages/PatientRecords';
 import Login from './pages/Login';
+import DoctorDashboard from './pages/DoctorDashboard';
+import DoctorConsultation from './pages/DoctorConsultation';
+import HospitalDashboard from './pages/HospitalDashboard';
 import { Navigate } from 'react-router-dom';
 
 const ProtectedRoute = ({ children }) => {
@@ -35,6 +38,9 @@ function App() {
           <Route path="laboratory" element={<Laboratory />} />
           <Route path="records" element={<PatientRecords />} />
           <Route path="patient/:id" element={<PatientRecords />} />
+          <Route path="doctor-dashboard" element={<DoctorDashboard />} />
+          <Route path="doctor/consultation/:id" element={<DoctorConsultation />} />
+          <Route path="hospital-admin" element={<HospitalDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -1,11 +1,14 @@
 import os
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from models import db, Patient, Consultation, Prescription, LabTest
+from models import db, Patient, Consultation, Prescription, LabTest, Hospital, Doctor
 from dotenv import load_dotenv
 import random
 import time
+import base64
+from io import BytesIO
 from deep_translator import GoogleTranslator
+from gtts import gTTS
 
 load_dotenv()
 
@@ -21,9 +24,68 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-# Initialize database
+# Initialize database and seed data
 with app.app_context():
     db.create_all()
+    
+    # Check if we need to seed hospitals and doctors
+    if Hospital.query.count() == 0:
+        h1 = Hospital(
+            name="City General Hospital",
+            address="123 Health Ave, Central District",
+            contact="080-12345678",
+            specialties="General, Cardiology, Neurology, Orthopedics"
+        )
+        db.session.add(h1)
+        db.session.flush()
+        
+        doctors = [
+            Doctor(id="DOC-001", name="Dr. Sarah Connor", specialization="General Physician", languages_spoken="English, Hindi, Kannada", hospital_id=h1.id),
+            Doctor(id="DOC-002", name="Dr. James Smith", specialization="Cardiologist", languages_spoken="English, Hindi", hospital_id=h1.id),
+            Doctor(id="DOC-003", name="Dr. Anita Desai", specialization="Neurologist", languages_spoken="English, Marathi, Hindi", hospital_id=h1.id),
+            Doctor(id="DOC-004", name="Dr. Rajesh Kumar", specialization="Orthopedic", languages_spoken="English, Tamil, Telugu", hospital_id=h1.id),
+            Doctor(id="DOC-005", name="Dr. Priya Sharma", specialization="Dermatologist", languages_spoken="English, Hindi, Punjabi", hospital_id=h1.id),
+        ]
+        db.session.add_all(doctors)
+        db.session.commit()
+        print("Database seeded with initial Hospital and Doctor data.")
+
+# ==========================================
+# Hospital & Doctor Routes
+# ==========================================
+
+@app.route('/api/hospitals', methods=['GET'])
+def get_hospitals():
+    hospitals = Hospital.query.all()
+    return jsonify([{
+        'id': h.id,
+        'name': h.name,
+        'address': h.address,
+        'contact': h.contact,
+        'specialties': h.specialties
+    } for h in hospitals]), 200
+
+@app.route('/api/doctors', methods=['GET'])
+def get_doctors():
+    doctors = Doctor.query.all()
+    return jsonify([{
+        'id': d.id,
+        'name': d.name,
+        'specialization': d.specialization,
+        'languages_spoken': d.languages_spoken,
+        'hospital_id': d.hospital_id
+    } for d in doctors]), 200
+
+@app.route('/api/doctors/<doctor_id>', methods=['GET'])
+def get_doctor(doctor_id):
+    doctor = Doctor.query.get_or_404(doctor_id)
+    return jsonify({
+        'id': doctor.id,
+        'name': doctor.name,
+        'specialization': doctor.specialization,
+        'languages_spoken': doctor.languages_spoken,
+        'hospital_id': doctor.hospital_id
+    }), 200
 
 # ==========================================
 # Patient Routes
@@ -115,12 +177,14 @@ def save_consultation():
     
     new_consultation = Consultation(
         patient_id=data.get('patient_id'),
+        doctor_id=data.get('doctor_id'), # Assigning specific doctor
         original_transcript=data.get('original_transcript'),
         translated_transcript=data.get('translated_transcript'),
         symptoms=data.get('symptoms'),
         diagnosis=data.get('diagnosis'),
         doctor_notes=data.get('doctor_notes'),
-        follow_up_instructions=data.get('follow_up_instructions')
+        follow_up_instructions=data.get('follow_up_instructions'),
+        status='Completed' if data.get('completed') else 'In-Progress'
     )
     
     db.session.add(new_consultation)
@@ -277,65 +341,139 @@ def translate_text():
 @app.route('/api/ai/analyze_consultation', methods=['POST'])
 def analyze_consultation():
     """
-    Mock AI endpoint that takes a transcript and generates structured medical data.
+    Enhanced AI endpoint that analyzes symptoms and assigns a suitable doctor.
     """
     data = request.json
     transcript = data.get('transcript', '').lower()
     
     # Simulate processing delay
-    time.sleep(1.5)
+    time.sleep(1.0)
     
-    # Intelligent mocked logic based on keywords
     symptoms = []
     diagnosis = "Pending evaluation"
     prescriptions = []
     lab_tests = []
     risk_alert = None
+    recommended_specialty = "General Physician"
     
-    # Dengue Risk Detection
+    # Mapping logic for Intelligent Routing
+    if any(word in transcript for word in ['chest pain', 'heart', 'palpitations']):
+        recommended_specialty = "Cardiologist"
+        symptoms.append("Chest Discomfort")
+    elif any(word in transcript for word in ['joint pain', 'bone', 'fracture', 'knee']):
+        recommended_specialty = "Orthopedic"
+        symptoms.append("Joint Pain")
+    elif any(word in transcript for word in ['skin', 'rash', 'itching']):
+        recommended_specialty = "Dermatologist"
+        symptoms.append("Skin Irritation")
+    elif any(word in transcript for word in ['headache', 'seizure', 'numbness', 'nerve']):
+        recommended_specialty = "Neurologist"
+        symptoms.append("Neurological Symptoms")
+    elif any(word in transcript for word in ['fever', 'cough', 'cold', 'flu']):
+        recommended_specialty = "General Physician"
+        symptoms.append("Fever/Cold")
+
+    # Find a doctor with this specialty
+    doctor = Doctor.query.filter_by(specialization=recommended_specialty).first()
+    if not doctor:
+        doctor = Doctor.query.first() # Fallback to any doctor
+
+    # Dengue Risk Detection (existing logic)
     if 'fever' in transcript and ('headache' in transcript or 'body pain' in transcript):
-        symptoms.extend(['High Fever', 'Severe Headache', 'Body Ache'])
-        diagnosis = "Possible Dengue / Viral Fever"
+        symptoms.extend(['High Fever', 'Severe Headache'])
+        diagnosis = "Dengue Clinical Suspicion"
         prescriptions = [
-            {'medicine_name': 'Paracetamol 500mg', 'dosage': '1 tablet every 6 hours'},
-            {'medicine_name': 'ORS Powder', 'dosage': 'Mix 1 sachet in 1L water, drink continuously'}
+            {'medicine_name': 'Paracetamol 500mg', 'dosage': '1 tablet 3x daily'},
+            {'medicine_name': 'Hydration Fluid', 'dosage': '2L daily'}
         ]
-        lab_tests = [
-            {'test_name': 'Complete Blood Count (CBC)'},
-            {'test_name': 'Dengue NS1 Antigen'}
-        ]
+        lab_tests = [{'test_name': 'CBC'}, {'test_name': 'Dengue NS1'}]
         risk_alert = 'Dengue Risk'
-        
-    # Thyroid Risk Detection
-    elif 'weight gain' in transcript and ('fatigue' in transcript or 'tired' in transcript):
-        symptoms.extend(['Unexplained Weight Gain', 'Extreme Fatigue'])
-        diagnosis = "Hypothyroidism Suspected"
-        prescriptions = [
-            {'medicine_name': 'Thyroxine Sodium 50mcg', 'dosage': '1 tablet morning empty stomach'}
-        ]
-        lab_tests = [
-            {'test_name': 'Thyroid Profile (T3, T4, TSH)'}
-        ]
-    
-    # General Default 
-    else:
-        symptoms = [s.strip() for s in str(transcript).split(' ') if len(s.strip()) > 4][:3] # mocked symptoms
-        if not symptoms:
-            symptoms = ['General Weakness']
-        diagnosis = "Need further observation"
-        prescriptions = [
-            {'medicine_name': 'Multivitamin', 'dosage': '1 tablet daily at night'}
-        ]
     
     return jsonify({
-        'symptoms': ', '.join(symptoms),
+        'symptoms': ', '.join(symptoms) if symptoms else 'General Symptoms',
         'diagnosis': diagnosis,
         'prescriptions': prescriptions,
         'lab_tests': lab_tests,
         'risk_alert': risk_alert,
-        'doctor_notes': 'Patient needs rest and adequate hydration. Follow prescribed medications.',
-        'follow_up_instructions': 'Visit again after completing the lab tests or if symptoms worsen.'
+        'assigned_doctor': {
+            'id': doctor.id,
+            'name': doctor.name,
+            'specialization': doctor.specialization
+        }
     }), 200
+
+# ==========================================
+# Doctor Dashboard Routes
+# ==========================================
+
+@app.route('/api/doctor/<doctor_id>/dashboard', methods=['GET'])
+def get_doctor_dashboard(doctor_id):
+    consultations = Consultation.query.filter_by(doctor_id=doctor_id).order_by(Consultation.date.desc()).all()
+    result = []
+    for c in consultations:
+        patient = Patient.query.get(c.patient_id)
+        result.append({
+            'consultation_id': c.id,
+            'patient_id': c.patient_id,
+            'patient_name': patient.name if patient else 'Unknown',
+            'date': c.date.isoformat(),
+            'status': c.status,
+            'symptoms': c.symptoms
+        })
+    return jsonify(result), 200
+
+# ==========================================
+# Advanced Multi-Modal Interaction (TTS)
+# ==========================================
+
+@app.route('/api/doctor/instructions_playback', methods=['POST'])
+def process_doctor_instructions():
+    """
+    Process doctor instructions: Translate and convert to Speech.
+    """
+    data = request.json
+    text = data.get('text', '')
+    target_lang = data.get('target_lang', 'en')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+        
+    try:
+        # 1. Translate
+        translator = GoogleTranslator(source='auto', target=target_lang.split('-')[0])
+        translated_text = translator.translate(text)
+        
+        # 2. TTS
+        tts = gTTS(text=translated_text, lang=target_lang.split('-')[0])
+        fp = BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        
+        # Encode as base64 to send to frontend
+        audio_base64 = base64.b64encode(fp.read()).decode('utf-8')
+        
+        return jsonify({
+            'translated_text': translated_text,
+            'audio_base64': audio_base64
+        }), 200
+    except Exception as e:
+        print(f"TTS/Translation error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# ==========================================
+# Hospital Admin Dashboard
+# ==========================================
+
+@app.route('/api/hospital/dashboard', methods=['GET'])
+def get_hospital_dashboard():
+    stats = {
+        'total_patients': Patient.query.count(),
+        'total_doctors': Doctor.query.count(),
+        'active_consultations': Consultation.query.filter(Consultation.status != 'Completed').count(),
+        'pending_lab_tests': LabTest.query.filter_by(status='Pending').count(),
+        'pending_prescriptions': Prescription.query.filter_by(status='Pending').count()
+    }
+    return jsonify(stats), 200
 
 # ==========================================
 # Export / Report Routes

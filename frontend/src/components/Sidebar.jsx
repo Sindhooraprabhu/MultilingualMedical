@@ -5,10 +5,11 @@ import {
   UserPlusIcon, 
   MicIcon, 
   BeakerIcon, 
-  ClipboardCheckIcon,
   UsersIcon,
   ActivitySquareIcon,
-  LogOutIcon
+  LogOutIcon,
+  StethoscopeIcon,
+  Building2Icon
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,6 +20,8 @@ const navigation = [
   { name: 'Pharmacy', href: '/pharmacy', icon: ClipboardCheckIcon },
   { name: 'Laboratory', href: '/laboratory', icon: BeakerIcon },
   { name: 'Patient Records', href: '/records', icon: UsersIcon },
+  { name: 'Doctor Portal', href: '/doctor-dashboard', icon: StethoscopeIcon },
+  { name: 'Hospital Admin', href: '/hospital-admin', icon: Building2Icon },
 ];
 
 export default function Sidebar() {
