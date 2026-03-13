@@ -7,8 +7,10 @@ import {
   BeakerIcon, 
   ClipboardCheckIcon,
   UsersIcon,
-  ActivitySquareIcon
+  ActivitySquareIcon,
+  LogOutIcon
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -20,6 +22,15 @@ const navigation = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    navigate('/login');
+  };
+
   return (
     <div className="flex h-full w-64 flex-col bg-white border-r border-gray-200 print:hidden">
       <div className="flex h-16 shrink-0 items-center px-6 bg-primary-dark">
@@ -32,8 +43,6 @@ export default function Sidebar() {
       </div>
       <nav className="flex flex-1 flex-col px-4 py-6 space-y-2 overflow-y-auto">
         {navigation.map((item) => {
-          // Dynamic icon mapping since we installed lucide-react
-          // We will use standard semantic lucide mappings conceptually
           return (
              <NavLink
               key={item.name}
@@ -55,15 +64,28 @@ export default function Sidebar() {
         })}
       </nav>
       <div className="p-4 border-t border-gray-200">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
-            DR
-          </div>
-          <div className="text-sm">
-             <p className="font-semibold text-gray-900">Dr. Sarah Connor</p>
-             <p className="text-gray-500 text-xs">General Physician</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            {user.picture ? (
+              <img src={user.picture} alt={user.name} className="w-8 h-8 rounded-full" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold uppercase">
+                {user.name ? user.name.substring(0, 2) : 'MD'}
+              </div>
+            )}
+            <div className="text-sm overflow-hidden">
+               <p className="font-semibold text-gray-900 truncate">{user.name || 'Medical Staff'}</p>
+               <p className="text-gray-500 text-xs truncate">{user.email || 'Department'}</p>
+            </div>
           </div>
         </div>
+        <button 
+          onClick={handleLogout}
+          className="flex w-full items-center px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+        >
+          <LogOutIcon className="w-5 h-5 mr-3" />
+          Sign Out
+        </button>
       </div>
     </div>
   );
