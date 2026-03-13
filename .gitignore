@@ -1,0 +1,33 @@
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+build/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+instance/
+
+# IDE/Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend specific (if any)
+frontend/node_modules/
+frontend/dist/
+backend/venv/
+backend/__pycache__/
+backend/.env
