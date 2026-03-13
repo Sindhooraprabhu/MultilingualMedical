@@ -43,7 +43,7 @@ const Login = () => {
                 </div>
 
                 <div className="mt-8 space-y-6">
-                    <div className="flex flex-col items-center">
+                    <div className="flex flex-col items-center gap-4">
                         <GoogleLogin
                             onSuccess={handleSuccess}
                             onError={handleError}
@@ -52,6 +52,26 @@ const Login = () => {
                             text="signin_with"
                             shape="pill"
                         />
+                        
+                        <div className="flex items-center w-full gap-4">
+                            <div className="flex-1 h-px bg-slate-700"></div>
+                            <span className="text-slate-500 text-xs uppercase font-medium">or</span>
+                            <div className="flex-1 h-px bg-slate-700"></div>
+                        </div>
+
+                        <button 
+                            onClick={() => {
+                                const guestUser = { name: 'Dr. Guest', email: 'guest@meditech.ai', picture: null };
+                                localStorage.setItem('user', JSON.stringify(guestUser));
+                                navigate('/');
+                            }}
+                            className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-medium transition-all border border-slate-600 flex items-center justify-center gap-2"
+                        >
+                            <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            Continue as Guest
+                        </button>
                     </div>
 
                     {error && (
